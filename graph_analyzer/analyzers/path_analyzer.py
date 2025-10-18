@@ -4,6 +4,7 @@ Analyzátor pro cesty a vzdálenosti v grafu.
 
 import heapq
 from collections import deque
+from typing import Dict, List, Tuple, Optional, Mapping
 
 class PathAnalyzer:
     """
@@ -62,7 +63,8 @@ class PathAnalyzer:
         distances = {node_id: float('inf') for node_id in self.graph.nodes}
         distances[start_id] = 0
         previous = {}
-        pq = [(0, start_id)]
+        # Use float for distances in the priority queue to satisfy type checkers
+        pq: List[Tuple[float, str]] = [(0.0, start_id)]
         
         while pq:
             current_dist, current_id = heapq.heappop(pq)
@@ -167,7 +169,8 @@ class PathAnalyzer:
         """Dijkstra pro výpočet vzdáleností v ohodnoceném grafu."""
         distances = {node_id: float('inf') for node_id in self.graph.nodes}
         distances[start_id] = 0
-        pq = [(0, start_id)]
+        # Use float distances in the priority queue
+        pq: List[Tuple[float, str]] = [(0.0, start_id)]
         
         while pq:
             current_dist, current_id = heapq.heappop(pq)
@@ -187,7 +190,7 @@ class PathAnalyzer:
         
         return distances
     
-    def get_node_eccentricity(self, node_id):
+    def get_node_eccentricity(self, node_id) -> float:
         """
         Vypočítá excentricitu uzlu (maximální vzdálenost k jakémukoli jinému uzlu).
         
@@ -198,18 +201,23 @@ class PathAnalyzer:
             float: Excentricita uzlu nebo float('inf') pokud graf není souvislý
         """
         if node_id not in self.graph.nodes:
-            return None
-        
-        distances = self.get_shortest_distances(node_id)
-        max_distance = 0
-        
+            # For consistency return infinity when node is not present
+            return float('inf')
+
+        distances: Mapping[str, float | int] = self.get_shortest_distances(node_id)
+        max_distance: float = 0.0
+
         for other_id in self.graph.nodes:
             if other_id != node_id:
                 if other_id in distances:
-                    max_distance = max(max_distance, distances[other_id])
+                    d = distances[other_id]
+                    # ensure d is a float (distance functions use numeric values)
+                    if d is None:
+                        return float('inf')
+                    max_distance = max(max_distance, float(d))
                 else:
                     return float('inf')  # Not connected
-        
+
         return max_distance
     
     def get_graph_diameter(self):
@@ -219,7 +227,7 @@ class PathAnalyzer:
         Returns:
             float: Průměr grafu
         """
-        max_eccentricity = 0
+        max_eccentricity = 0.0
         for node_id in self.graph.nodes:
             eccentricity = self.get_node_eccentricity(node_id)
             if eccentricity == float('inf'):

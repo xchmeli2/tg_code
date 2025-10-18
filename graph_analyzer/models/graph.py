@@ -219,6 +219,8 @@ class Graph:
             return None
         
         degree_info = self.get_node_degree(node_id)
+        if degree_info is None:
+            return None
         if self.is_directed:
             return degree_info['total_degree'] == 0
         else:

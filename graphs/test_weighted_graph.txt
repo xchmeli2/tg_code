@@ -1,6 +1,0 @@
-u A 5;
-u B 3;
-u C 2;
-h A > B 2.5 :edge1;
-h B > C 1.8 :edge2;
-h C > A 3.2 :edge3;
