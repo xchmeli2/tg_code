@@ -1,5 +1,5 @@
 """
-# Dokumentace Python Skriptu pro Analýzu Grafů
+# Python Skript pro Analýzu Grafů
 
 Tento dokument popisuje Python skript pro analýzu grafů, který byl refaktorován do modulární struktury pro lepší organizaci a rozšiřitelnost. Skript je navržen pro parsování grafů z textového souboru a následnou analýzu jejich vlastností a charakteristik, včetně maticových reprezentací a pokročilejších metrik, jak bylo probráno v prvních dvou cvičeních teorie grafů.
 
@@ -236,3 +236,105 @@ Níže jsou uvedeny příklady použití nového CLI rozhraní:
 ```
 
 ---
+
+Další příklady pro maticové reprezentace
+
+```bash
+# Vytiskne výchozí sadu matic (sousednost + incidence; přidá se weight pokud graf obsahuje váhy)
+./analyze_graph.py test_graph.txt --matrices
+
+# Jen matice sousednosti
+./analyze_graph.py test_graph.txt --adjacency
+
+# Matice sousednosti a zároveň A^2 (počet cest délky 2)
+./analyze_graph.py test_graph.txt --adjacency --adj-power 2
+
+# Jen matice vah
+./analyze_graph.py test_graph.txt --weight
+
+# Export vybraných matic do CSV souborů v adresáři out_dir
+./analyze_graph.py test_graph.txt --matrices --export-csv out_dir
+```
+
+Poznámky k maticím a CSV exportu
+
+- `MatrixAnalyzer` tiskne matice zarovnané podle šířky sloupců. Plovoucí čísla se formátují s nastavitelnou přesností přes atribut `float_precision` (výchozí 1). Symbol pro reprezentaci "nekonečna" je `∞` (atribut `inf_symbol`). Tyto atributy lze změnit programově před zavoláním tiskových metod.
+- CLI přepínače (krátce):
+    - `--matrices` — výchozí sada matic (adjacency + incidence; přidá se weight pokud graf obsahuje váhy)
+    - `--adjacency` — pouze matice sousednosti
+    - `--incidence` — pouze matice incidence
+    - `--weight` — pouze matice vah (funguje jen pokud jsou v grafech váhy)
+    - `--adj-power K` — spočítá a vytiskne A^K (počet cest délky K)
+    - `--export-csv DIR` — uloží vybrané matice do CSV souborů do adresáře `DIR` (vytvoří `adjacency.csv`, `incidence.csv`, `weight.csv` a `adjacency_power_K.csv` pokud je použito `--adj-power`)
+
+CSV formát: první sloupec obsahuje řádkové popisky (identifikátory uzlů), hlavička obsahuje popisky sloupců (uzly nebo `h1,h2,...` pro incidence). Prázdné políčko v CSV znamená žádné přímé spojení (odpovídá `∞` ve výpisu).
+
+## Význam maticových hodnot
+
+Níže krátce popisuji, co jednotlivé hodnoty v jednotlivých maticích znamenají a jak je interpretovat při analýze grafu.
+
+Adjacency (sousednost)
+
+- Tvar: čtvercová matice `n x n`, kde `n` je počet uzlů.
+- Hodnoty: nejčastěji `0/1` (0 = žádná bezprostřední hrana, 1 = existuje hrana). V tomto projektu se pro multigrafy používají celá čísla > 0 (počet paralelních hran).
+- Diagonála: obvykle `0` (žádná smyčka). Smyčky se mohou projevit jako speciální zápis nebo explicitně v incidence matici.
+- Symetrie: pokud je matice symetrická (`A[i][j] == A[j][i]`), graf je neorientovaný. Nesesymetrie indikuje orientované hrany.
+
+Příklad (adjacency):
+
+```
+# úplný neorientovaný graf s jednotkovými hranami
+[
+    [0,1,1],
+    [1,0,1],
+    [1,1,0]
+]
+```
+
+Incidence matice
+
+- Tvar: `n_nodes x n_edges` (řádky = uzly, sloupce = hrany).
+- Hodnoty v buňkách: `1`, `-1` nebo `2`:
+    - `1`  — uzel je zdroj (tail) hrany
+    - `-1` — uzel je cíl (head) hrany
+    - `2`  — smyčka (hrana spojuje uzel se sebou)
+
+Příklad (incidence pro A->B):
+
+```
+# řádky: A, B ; sloupce: e1
+[
+    [ 1 ],
+    [-1 ]
+]
+```
+
+Matici vah (weight / distance)
+
+- Tvar: čtvercová `n x n` matice.
+- Hodnoty: čísla (float nebo int) představují váhy hran. `float('inf')` znamená, že mezi dvěma uzly neexistuje přímá hrana.
+- Diagonála je `0`.
+
+Příklad (weight):
+
+```
+[
+    [0.0,   1.5,    inf],
+    [1.5,   0.0,    2.0],
+    [inf,   2.0,    0.0]
+]
+```
+
+CSV mapování a praktické poznámky
+
+- V CSV exportu: prázdné pole = žádné přímé spojení (odpovídá `∞` ve výpisu). Numerická pole obsahují hodnotu přesně tak, jak je v matici.
+- U incidence CSV jsou sloupce `h1..hm` a buňky jsou `1/-1/2` podle orientace/smyčky.
+- Patterny k rozpoznání:
+    - Všechny nediagonální hodnoty `1` v `adjacency` => úplný neorientovaný graf s jednotkovými hranami.
+    - Silná asymetrie => orientovaný graf.
+    - `get_adjacency_power(k)` s nenulovými hodnotami pro (i,j) znamená existenci cesty délky `k` z i do j.
+
+Krátké doporučení
+
+- Pokud chcete v CSV zapisovat explicitní symbol pro nekonečno (např. `INF`), upravte `save_matrix_csv` tak, aby zapisoval tento řetězec místo prázdného políčka.
+- Pro rychlou kontrolu matic otevřete CSV v tabulkovém editoru a hledejte výše popsané patterny (symetrie, prázdné sloupce/řádky, jednotkové matice apod.).

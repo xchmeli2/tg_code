@@ -17,6 +17,54 @@ class GraphPropertiesAnalyzer:
             graph (Graph): Graf k analýze
         """
         self.graph = graph
+
+    def _is_placeholder(self, node_id):
+        """Return True if node_id represents a placeholder node (binary-tree skip markers)."""
+        return isinstance(node_id, str) and node_id.startswith('*')
+
+    def _real_node_ids(self):
+        """Return set of node ids that are real (not placeholders)."""
+        return {nid for nid in self.graph.nodes if not self._is_placeholder(nid)}
+
+    # Node-level helper methods (convenience API)
+    def get_successors(self, node_id):
+        """Return list of successor node ids (edges u->v)."""
+        return [edge.v.identifier for edge in self.graph.adj.get(node_id, [])]
+
+    def get_predecessors(self, node_id):
+        """Return list of predecessor node ids (edges u->v where v==node_id)."""
+        if not self.graph.is_directed:
+            # For undirected graphs predecessors == successors
+            return self.get_successors(node_id)
+        return [edge.u.identifier for edge in self.graph.rev_adj.get(node_id, [])]
+
+    def get_neighbors(self, node_id):
+        """Return list of neighbor node ids (ignoring orientation)."""
+        neighbors = set(self.get_successors(node_id))
+        if self.graph.is_directed:
+            neighbors.update(self.get_predecessors(node_id))
+        return list(neighbors)
+
+    def incident_edges(self, node_id):
+        """Return list of incident Edge objects for the given node id."""
+        edges = list(self.graph.adj.get(node_id, []))
+        # If reverse adjacency exists, include those as well
+        if hasattr(self.graph, 'rev_adj'):
+            edges += list(self.graph.rev_adj.get(node_id, []))
+        return edges
+
+    def out_degree(self, node_id):
+        return len(self.graph.adj.get(node_id, []))
+
+    def in_degree(self, node_id):
+        if not self.graph.is_directed:
+            return self.out_degree(node_id)
+        return len(self.graph.rev_adj.get(node_id, []))
+
+    def degree(self, node_id):
+        if self.graph.is_directed:
+            return self.in_degree(node_id) + self.out_degree(node_id)
+        return self.out_degree(node_id)
     
     def is_directed_graph(self):
         """Zjistí, zda je graf orientovaný."""
@@ -45,8 +93,7 @@ class GraphPropertiesAnalyzer:
     def is_connected_graph(self):
         """Zjistí, zda je graf souvislý (ignoruje placeholder uzly)."""
         # FILTRUJ PLACEHOLDER UZLY
-        real_nodes = {node_id for node_id in self.graph.nodes 
-                    if not node_id.startswith('*_')}
+        real_nodes = self._real_node_ids()
         
         if not real_nodes:
             return True
@@ -80,52 +127,55 @@ class GraphPropertiesAnalyzer:
     
     def is_complete_graph(self):
         """Zjistí, zda je graf úplný."""
-        num_nodes = len(self.graph.nodes)
+        real_nodes = self._real_node_ids()
+        num_nodes = len(real_nodes)
         if num_nodes == 0 or num_nodes == 1:
             return True
-        
+
         # A complete graph must be undirected and simple
         if self.graph.is_directed or self.graph.has_loops or self.graph.has_multiple_edges:
             return False
-        
-        # For each pair of distinct nodes (u, v), there must be exactly one edge
+
+        # Build unordered edge set between real nodes (frozenset of two node ids)
+        edge_set = set()
+        for e in self.graph.edges:
+            u_id = e.u.identifier
+            v_id = e.v.identifier
+            if u_id == v_id:
+                continue
+            if u_id in real_nodes and v_id in real_nodes:
+                edge_set.add(frozenset((u_id, v_id)))
+
         expected_edges = num_nodes * (num_nodes - 1) // 2
-        actual_edges = len(self.graph.edges)
-        
-        if actual_edges != expected_edges:
+        if len(edge_set) != expected_edges:
             return False
-        
-        # Verify every pair is connected
-        for u_id, u_node in self.graph.nodes.items():
-            for v_id, v_node in self.graph.nodes.items():
-                if u_id == v_id:
-                    continue
-                found_edge = False
-                for edge in self.graph.adj[u_id]:
-                    if edge.v == v_node:
-                        found_edge = True
-                        break
-                if not found_edge:
+
+        # Verify every unordered pair is present
+        real_list = list(real_nodes)
+        for i in range(num_nodes):
+            for j in range(i + 1, num_nodes):
+                if frozenset((real_list[i], real_list[j])) not in edge_set:
                     return False
         return True
     
     def is_regular_graph(self):
         """Zjistí, zda je graf regulární (všechny uzly mají stejný stupeň)."""
-        if not self.graph.nodes:
+        real_nodes = self._real_node_ids()
+        if not real_nodes:
             return True
-        
+
         degrees = []
-        for node_id in self.graph.nodes:
+        for node_id in real_nodes:
             if self.graph.is_directed:
-                in_degree = len(self.graph.rev_adj[node_id])
-                out_degree = len(self.graph.adj[node_id])
+                in_degree = len([e for e in self.graph.rev_adj.get(node_id, []) if e.u.identifier in real_nodes])
+                out_degree = len([e for e in self.graph.adj.get(node_id, []) if e.v.identifier in real_nodes])
                 degrees.append(in_degree + out_degree)
             else:
-                degrees.append(len(self.graph.adj[node_id]))
-        
+                degrees.append(len([e for e in self.graph.adj.get(node_id, []) if e.v.identifier in real_nodes]))
+
         if not degrees:
             return True
-        
+
         first_degree = degrees[0]
         return all(d == first_degree for d in degrees)
     
@@ -164,8 +214,7 @@ class GraphPropertiesAnalyzer:
         if not self.graph.nodes:
             return 0
         
-        real_nodes = {node_id for node_id in self.graph.nodes 
-            if not node_id.startswith('*_')}
+        real_nodes = self._real_node_ids()
         
         if not real_nodes:
             return 0
@@ -211,22 +260,25 @@ class GraphPropertiesAnalyzer:
     def _has_cycles_directed(self):
         """Detekce cyklů v orientovaném grafu pomocí DFS."""
         WHITE, GRAY, BLACK = 0, 1, 2
-        color = {node_id: WHITE for node_id in self.graph.nodes}
-        
+        # Only consider real nodes for cycle detection
+        real_nodes = self._real_node_ids()
+        color = {node_id: WHITE for node_id in real_nodes}
+
         def dfs(node_id):
             if color[node_id] == GRAY:
                 return True  # Back edge found, cycle detected
             if color[node_id] == BLACK:
                 return False
-            
+
             color[node_id] = GRAY
-            for edge in self.graph.adj[node_id]:
-                if edge.direction == '>' and dfs(edge.v.identifier):
+            for edge in self.graph.adj.get(node_id, []):
+                neigh = edge.v.identifier
+                if neigh in color and dfs(neigh):
                     return True
             color[node_id] = BLACK
             return False
-        
-        for node_id in self.graph.nodes:
+
+        for node_id in list(color.keys()):
             if color[node_id] == WHITE and dfs(node_id):
                 return True
         return False
@@ -234,19 +286,22 @@ class GraphPropertiesAnalyzer:
     def _has_cycles_undirected(self):
         """Detekce cyklů v neorientovaném grafu pomocí DFS."""
         visited = set()
-        
+        real_nodes = self._real_node_ids()
+
         def dfs(node_id, parent_id):
             visited.add(node_id)
-            for edge in self.graph.adj[node_id]:
+            for edge in self.graph.adj.get(node_id, []):
                 neighbor_id = edge.v.identifier
+                if neighbor_id not in real_nodes:
+                    continue
                 if neighbor_id not in visited:
                     if dfs(neighbor_id, node_id):
                         return True
                 elif neighbor_id != parent_id:
                     return True
             return False
-        
-        for node_id in self.graph.nodes:
+
+        for node_id in real_nodes:
             if node_id not in visited:
                 if dfs(node_id, None):
                     return True
@@ -254,8 +309,7 @@ class GraphPropertiesAnalyzer:
     
     def is_tree(self):
         """Zjistí, zda je graf strom (ignoruje placeholder uzly)."""
-        real_nodes = {node_id for node_id in self.graph.nodes 
-                    if not node_id.startswith('*_')}
+        real_nodes = self._real_node_ids()
         
         if self.graph.is_directed:
             if self.has_cycles():
@@ -299,8 +353,7 @@ class GraphPropertiesAnalyzer:
         if self.has_cycles():
             return False
         
-        real_nodes = {node_id for node_id in self.graph.nodes 
-                    if not node_id.startswith('*_')}
+        real_nodes = self._real_node_ids()
         
         num_real_nodes = len(real_nodes)
         num_real_edges = len([e for e in self.graph.edges 
