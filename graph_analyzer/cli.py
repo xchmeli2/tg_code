@@ -18,132 +18,40 @@ def print_custom_header():
 │                                                               │
 ╚───────────────────────────────────────────────────────────────╝
     """
-    print(header)
+    lines = header.splitlines()
+    # If not a TTY, print without colors
+    if not sys.stdout.isatty():
+        print(header)
+        return
+
+    n = len(lines)
+    if n <= 1:
+        print(header)
+        return
+
+    for i, line in enumerate(lines):
+        # compute a red gradient from bright (255) to darker (120)
+        t = i / (n - 1)
+        r = int(255 - t * 135)           # 255 -> 120
+        g = int(r * 0.12)                # keep slight warmth
+        b = int(r * 0.06)
+        # clamp
+        r, g, b = max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b))
+        sys.stdout.write(f"\x1b[38;2;{r};{g};{b}m{line}\x1b[0m\n")
+
 
 def create_parser():
-    """Vytvoří parser pro argumenty příkazové řádky."""
+    """Create argparse.ArgumentParser with CLI options."""
     parser = argparse.ArgumentParser(
-                description='Analyzátor grafů - nástroj pro analýzu vlastností a charakteristik grafů',
-                formatter_class=argparse.RawDescriptionHelpFormatter,
-                epilog="""
-Stručný přehled všech funkcí):
-
-=====================================
-            Základní:
-=====================================
-
-
-    %(prog)s graf.txt
-    -------------------------------------------------------------------------------------------------------------------------------
-        Vytiskne základní informace (počet uzlů/hran) a vlastnosti grafu.
-
-
-=====================================
-        Vlastnosti grafu:
-=====================================
-
-
-    %(prog)s graf.txt --properties
-    -------------------------------------------------------------------------------------------------------------------------------
-        Jen základní vlastnosti (directed/weighted/simple/connected/complete/regular/bipartite/tree/forest/cycles/components)
-
-        
-=====================================
-           Analýza uzlů:
-=====================================
-
-
-    %(prog)s graf.txt --neighbors A
-    -------------------------------------------------------------------------------------------------------------------------------
-        Zobrazí všechny sousedy uzlu A (ignoruje směr hran).
-
-    %(prog)s graf.txt --degree A
-    -------------------------------------------------------------------------------------------------------------------------------
-        Zobrazí stupeň uzlu A (in/out/total pro orientované grafy).
-
-    %(prog)s graf.txt --successors A
-    -------------------------------------------------------------------------------------------------------------------------------
-        Následníci uzlu A (u->v, orientované hrany).
-
-    %(prog)s graf.txt --predecessors A
-    -------------------------------------------------------------------------------------------------------------------------------
-        Předchůdci uzlu A (v->u, orientované hrany).
-
-        
-=====================================
-           Analýzy cest:
-=====================================
-
-
-    %(prog)s graf.txt --path A B
-    -------------------------------------------------------------------------------------------------------------------------------
-        Najde nejkratší cestu z A do B (BFS pro neohodnocené, Dijkstra pro ohodnocené grafy).
-
-    %(prog)s graf.txt --all-paths A B
-    -------------------------------------------------------------------------------------------------------------------------------
-        Najde všechny jednoduché cesty mezi A a B (omezeno parametrem --max-paths).
-
-    %(prog)s graf.txt --distances A
-    -------------------------------------------------------------------------------------------------------------------------------
-        Vzdálenosti od uzlu A ke všem ostatním.
-
-    %(prog)s graf.txt --diameter
-    -------------------------------------------------------------------------------------------------------------------------------
-        Průměr grafu (max z excentricit). Pokud graf není souvislý, vrací nekonečno.
-
-    %(prog)s graf.txt --radius
-    -------------------------------------------------------------------------------------------------------------------------------
-        Poloměr grafu.
-
-    %(prog)s graf.txt --center
-    -------------------------------------------------------------------------------------------------------------------------------
-        Centrální uzly grafu.
-
-        
-=====================================
-        Maticové reprezentace:
-=====================================
-
-
-    %(prog)s graf.txt --matrices
-    -------------------------------------------------------------------------------------------------------------------------------
-        Vytiskne adjacency + incidence (a weight pokud graf má váhy).
-    %(prog)s graf.txt --adjacency
-    -------------------------------------------------------------------------------------------------------------------------------
-        Jen matice sousednosti.
-
-    %(prog)s graf.txt --incidence
-    -------------------------------------------------------------------------------------------------------------------------------
-        Jen incidence matice.
-
-    %(prog)s graf.txt --weight
-    -------------------------------------------------------------------------------------------------------------------------------
-        Jen matice vah (pouze pokud jsou váhy přítomné).
-
-    %(prog)s graf.txt --adj-power 2
-    -------------------------------------------------------------------------------------------------------------------------------
-        Vypočte A^2 (počet cest délky 2).
-
-    %(prog)s graf.txt --matrices --export-csv out_dir
-    -------------------------------------------------------------------------------------------------------------------------------
-        Exportuje matice do CSV souborů v adresáři out_dir.
-
-        
-=====================================
-     Další užitečné přepínače:
-=====================================
-
-
-    %(prog)s graf.txt --quiet
-    -------------------------------------------------------------------------------------------------------------------------------
-        Potlačí dekorativní výstup (jen výsledky).
-
-    %(prog)s graf.txt --max-paths 50
-    -------------------------------------------------------------------------------------------------------------------------------
-        Zvětší limit počtu zobrazených cest při --all-paths.
-
-
-    """
+        description='Analyzátor grafů - nástroj pro analýzu vlastností a charakteristik grafů',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "See HELP.md in the repository for a concise command reference.\n"
+            "Examples:\n"
+            "  main.py graph.txt --properties\n"
+            "  main.py graph.txt --info A\n"
+            "  main.py graph.txt --matrices --export-csv out_dir\n"
+        ),
     )
 
     parser.add_argument('input_file', help='Cesta k vstupnímu souboru s definicí grafu')
@@ -161,6 +69,7 @@ Stručný přehled všech funkcí):
     node_group.add_argument('--degree', metavar='NODE', help='Zobrazí stupeň zadaného uzlu')
     node_group.add_argument('--successors', metavar='NODE', help='Zobrazí následníky zadaného uzlu (orientované grafy)')
     node_group.add_argument('--predecessors', metavar='NODE', help='Zobrazí předchůdce zadaného uzlu (orientované grafy)')
+    node_group.add_argument('--info', metavar='NODE', help='Zobrazí všechny vlastnosti zadaného uzlu')
 
     path_group = parser.add_argument_group('Analýzy cest')
     path_group.add_argument('--path', nargs=2, metavar=('START', 'END'), help='Najde nejkratší cestu mezi dvěma uzly')
@@ -188,7 +97,7 @@ def run(argv=None):
 
     has_specific_args = any([
         args.properties, args.matrices, args.full,
-        args.neighbors, args.degree, args.successors, args.predecessors,
+        args.neighbors, args.degree, args.successors, args.predecessors, args.info,
         args.path, args.all_paths, args.distances, args.diameter, args.radius, args.center,
         args.adjacency, args.incidence, args.weight, args.adj_power is not None
     ])
@@ -215,6 +124,9 @@ def run(argv=None):
 
     if args.predecessors:
         commands.analyze_node(graph, args.predecessors, 'predecessors', args.quiet)
+
+    if args.info:
+        commands.analyze_node(graph, args.info, 'all', args.quiet)
 
     if any([args.path, args.all_paths, args.distances, args.diameter, args.radius, args.center]):
         commands.analyze_paths(graph, args, args.quiet)
