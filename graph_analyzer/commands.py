@@ -26,8 +26,8 @@ def print_basic_info(graph, quiet=False):
         print("ZÁKLADNÍ INFORMACE O GRAFU")
         print("="*60)
 
-    print(f"Počet uzlů: {graph.get_node_count()}")
-    print(f"Počet hran: {graph.get_edge_count()}")
+    print(f"Počet uzlů:_________{graph.get_node_count()}")
+    print(f"Počet hran:_________{graph.get_edge_count()}")
 
 
 def analyze_properties(graph, quiet=False):
@@ -35,22 +35,35 @@ def analyze_properties(graph, quiet=False):
     analyzer = GraphPropertiesAnalyzer(graph)
     properties = analyzer.get_basic_properties()
 
+    def _fmt_bool(val):
+        """Vrací 'Ano'/'Ne' (či barevnou variantu) pro boolean hodnoty."""
+        # If not a TTY, return plain Czech Yes/No
+        if not sys.stdout.isatty():
+            return 'Ano' if val else 'Ne'
+        # Use ANSI colors: green for True, red for False
+        if val:
+            return f"\x1b[32mAno\x1b[0m"
+        else:
+            return f"\x1b[31mNe\x1b[0m"
+
     if not quiet:
         print("\n" + "="*60)
         print("VLASTNOSTI GRAFU")
         print("="*60)
 
-    print(f"Orientovaný:        {properties['is_directed']}")
-    print(f"Ohodnocený:         {properties['is_weighted']}")
-    print(f"Prostý:             {properties['is_simple']}")
-    print(f"Souvislý:           {properties['is_connected']}")
-    print(f"Úplný:              {properties['is_complete']}")
-    print(f"Regulární:          {properties['is_regular']}")
-    print(f"Bipartitní:         {properties['is_bipartite']}")
-    print(f"Strom:              {properties['is_tree']}")
-    print(f"Les:                {properties['is_forest']}")
-    print(f"Obsahuje cykly:     {properties['has_cycles']}")
-    print(f"Počet komponent:    {properties['component_count']}")
+    print(f"Orientovaný:________{_fmt_bool(properties['is_directed'])}")
+    print(f"Ohodnocený:_________{_fmt_bool(properties['is_weighted'])}")
+    print(f"Jednoduchý:_________{_fmt_bool(properties['is_simple'])}")
+    print(f"Souvislý:___________{_fmt_bool(properties['is_connected'])}")
+    print(f"Úplný:______________{_fmt_bool(properties['is_complete'])}")
+    print(f"Regulární:__________{_fmt_bool(properties['is_regular'])}")
+    print(f"Bipartitní:_________{_fmt_bool(properties['is_bipartite'])}")
+    print(f"Strom:______________{_fmt_bool(properties['is_tree'])}")
+    print(f"Les:________________{_fmt_bool(properties['is_forest'])}")
+    print(f"Obsahuje smyčky:____{_fmt_bool(properties['has_loops'])}")
+    print(f"Obsahuje cykly:_____{_fmt_bool(properties['has_cycles'])}")
+    print(f"Rovinný (heur.):____{_fmt_bool(analyzer.is_planar_graph())}")
+    print(f"Počet komponent:____{properties['component_count']}")
 
 
 def analyze_node(graph, node_id, analysis_type, quiet=False):
@@ -77,6 +90,35 @@ def analyze_node(graph, node_id, analysis_type, quiet=False):
         else:
             print(f"Stupeň uzlu: {degree_info['total_degree']}")
         print(f"Izolovaný uzel: {graph.is_isolated_node(node_id)}")
+
+    elif analysis_type == 'all':
+        node = graph.get_node(node_id)
+        print(f"\n{'-'*40}")
+        print(f"VŠECHNY VLASTNOSTI UZLU '{node_id}'")
+        print(f"{'-'*40}")
+        print(f"Identifier: {node.identifier}")
+        print(f"Value: {node.value}")
+        neighbors = graph.get_neighbors(node_id)
+        print(f"Sousedé: {neighbors}")
+
+        # Use analyzer helpers so undirected graphs return neighbors for successors/predecessors
+        from .analyzers import GraphPropertiesAnalyzer
+        analyzer = GraphPropertiesAnalyzer(graph)
+        print(f"Následníci: {analyzer.get_successors(node_id)}")
+        print(f"Předchůdci: {analyzer.get_predecessors(node_id)}")
+
+        # Use analyzer helpers to get in/out/total degrees
+        out_deg = analyzer.out_degree(node_id)
+        in_deg = analyzer.in_degree(node_id)
+        total_deg = analyzer.degree(node_id)
+        print(f"Vstupní stupeň: {in_deg}, Výstupní stupeň: {out_deg}, Celkový: {total_deg}")
+
+        # incident edges
+        inc_edges = analyzer.incident_edges(node_id)
+        print(f"Incidentní hrany (u -> v, směr, váha):")
+        for e in inc_edges:
+            print(f"  {e.u.identifier} {e.direction} {e.v.identifier} (weight={e.weight})")
+        print(f"Izolovaný: {graph.is_isolated_node(node_id)}")
 
     elif analysis_type == 'successors':
         successors = graph.get_successors(node_id)

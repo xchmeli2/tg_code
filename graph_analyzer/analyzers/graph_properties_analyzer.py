@@ -208,6 +208,46 @@ class GraphPropertiesAnalyzer:
                         elif color[v_id] == color[u_id]:
                             return False
         return True
+
+    def is_planar_graph(self):
+        """
+        Heuristická kontrola rovinnosti grafu.
+
+        Poznámka: úplné testování rovinnosti (Hopcroft-Tarjan) je složitější.
+        Tato metoda používá nutné podmínky pro jednoduché grafy:
+          - pokud m > 3n - 6 -> NENÍ rovinný
+          - pokud je bipartitní a m > 2n - 4 -> NENÍ rovinný
+        Pokud tyto podmínky nejsou porušeny, metoda vrací True ("pravděpodobně rovinný").
+
+        Vrací False pokud není rovinný podle těchto nutných podmínek.
+        """
+        real_nodes = self._real_node_ids()
+        n = len(real_nodes)
+        if n < 3:
+            return True
+
+        # Počítáme unikátní neorientované hrany mezi skutečnými uzly (bez smyček)
+        edge_set = set()
+        for e in self.graph.edges:
+            u_id = e.u.identifier
+            v_id = e.v.identifier
+            if u_id == v_id:
+                continue
+            if u_id in real_nodes and v_id in real_nodes:
+                edge_set.add(frozenset((u_id, v_id)))
+
+        m = len(edge_set)
+
+        # Pokud překračuje horní mez pro jednoduchý graf, není rovinný
+        if m > 3 * n - 6:
+            return False
+
+        # Pro bipartitní grafy platí přísnější mez
+        if self.is_bipartite_graph() and m > 2 * n - 4:
+            return False
+
+        # Jinak považujeme graf za pravděpodobně rovinný (heuristika)
+        return True
     
     def count_components(self):
         """Spočítá počet komponent grafu."""
