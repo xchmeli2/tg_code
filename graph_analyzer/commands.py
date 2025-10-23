@@ -53,7 +53,7 @@ def analyze_properties(graph, quiet=False):
 
     print(f"Orientovaný:________{_fmt_bool(properties['is_directed'])}")
     print(f"Ohodnocený:_________{_fmt_bool(properties['is_weighted'])}")
-    print(f"Jednoduchý:_________{_fmt_bool(properties['is_simple'])}")
+    print(f"Prostý:_____________{_fmt_bool(properties['is_simple'])}")
     print(f"Souvislý:___________{_fmt_bool(properties['is_connected'])}")
     print(f"Úplný:______________{_fmt_bool(properties['is_complete'])}")
     print(f"Regulární:__________{_fmt_bool(properties['is_regular'])}")
@@ -256,6 +256,45 @@ def analyze_matrices(graph, args, quiet=False):
             export_dir = sys.argv[sys.argv.index('--export-csv') + 1]
         except Exception:
             export_dir = None
+
+    # Interaktivní režim s maticemi
+    if getattr(args, 'matrix_ops', False):
+        print("\n" + "="*60)
+        print("INTERAKTIVNÍ OPERACE S MATICEMI")
+        print("="*60)
+        print("Vyberte matici pro práci:")
+        print("1. Matice sousednosti")
+        print("2. Matice incidence")
+        if graph.is_weighted:
+            print("3. Matice vah")
+        print("0. Zpět")
+        
+        try:
+            choice = input("\nVaše volba: ").strip()
+            if choice == '1':
+                matrix, nodes = matrix_analyzer.get_adjacency_matrix()
+                if matrix:
+                    matrix_analyzer.print_adjacency_matrix()
+                    matrix_analyzer.interactive_matrix_operations(matrix, nodes, "Matice sousednosti")
+                else:
+                    print("Matice sousednosti je prázdná")
+            elif choice == '2':
+                matrix, nodes, edges = matrix_analyzer.get_incidence_matrix()
+                if matrix:
+                    matrix_analyzer.print_incidence_matrix()
+                    matrix_analyzer.interactive_matrix_operations(matrix, nodes, "Matice incidence")
+                else:
+                    print("Matice incidence je prázdná")
+            elif choice == '3' and graph.is_weighted:
+                matrix, nodes = matrix_analyzer.get_weight_matrix()
+                if matrix:
+                    matrix_analyzer.print_weight_matrix()
+                    matrix_analyzer.interactive_matrix_operations(matrix, nodes, "Matice vah")
+                else:
+                    print("Matice vah je prázdná")
+        except KeyboardInterrupt:
+            print("\nPřerušeno uživatelem")
+        return
 
     if not show_any_specific:
         matrix_analyzer.print_adjacency_matrix()

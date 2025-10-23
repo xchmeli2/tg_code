@@ -68,11 +68,17 @@ Basic
 
     main.py graphs/example.tg --adjacency
 
+  Interaktivní operace s maticemi (sčítání řádků, sloupců, diagonál, transpozice, ...):
+
+    main.py graphs/example.tg --matrix-ops
+
   Export do CSV (adresář se vytvoří pokud neexistuje):
 
     main.py graphs/example.tg --matrices --export-csv out_csv
 
   Poznámka: CSV soubory se uloží jako `adjacency.csv`, `incidence.csv`, `weight.csv` a případně `adjacency_power_K.csv`.
+
+  python3 main.py graphs/example.tg
 
   Přepínače a krátká reference
   -----------------------------
@@ -82,6 +88,7 @@ Basic
     --incidence        Jen matice incidence
     --weight           Jen matice vah
     --adj-power K      Vypočte A^K (počet cest délky K)
+    --matrix-ops       Interaktivní operace s maticemi
     --neighbors NODE   Sousedé zadaného uzlu
     --degree NODE      Stupeň zadaného uzlu
     --successors NODE  Následníci (orientované grafy)
@@ -91,6 +98,8 @@ Basic
     --all-paths S E    Všechny jednoduché cesty S -> E
     --distances NODE   Vzdálenosti od NODE
     --quiet, -q        Potlačí dekorativní header a oddělovače
+    --export-csv out_csv
+    --matrix-ops
 
   Poznámky
   --------

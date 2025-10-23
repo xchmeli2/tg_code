@@ -342,3 +342,443 @@ class MatrixAnalyzer:
             writer.writerow(header)
             writer.writerows(table)
         return path
+
+    # ========== Maticové operace ==========
+
+    def sum_row(self, matrix, row_idx):
+        """Vrátí součet hodnot v daném řádku."""
+        if not matrix or row_idx >= len(matrix):
+            return 0
+        return sum(val for val in matrix[row_idx] if val != float('inf'))
+
+    def sum_column(self, matrix, col_idx):
+        """Vrátí součet hodnot v daném sloupci."""
+        if not matrix or col_idx >= len(matrix[0]):
+            return 0
+        return sum(row[col_idx] for row in matrix if row[col_idx] != float('inf'))
+
+    def sum_main_diagonal(self, matrix):
+        """Vrátí součet hlavní diagonály (levý horní → pravý dolní)."""
+        if not matrix:
+            return 0
+        n = min(len(matrix), len(matrix[0]) if matrix else 0)
+        return sum(matrix[i][i] for i in range(n) if matrix[i][i] != float('inf'))
+
+    def sum_anti_diagonal(self, matrix):
+        """Vrátí součet vedlejší diagonály (pravý horní → levý dolní)."""
+        if not matrix:
+            return 0
+        rows = len(matrix)
+        cols = len(matrix[0]) if rows else 0
+        n = min(rows, cols)
+        return sum(matrix[i][cols-1-i] for i in range(n) if matrix[i][cols-1-i] != float('inf'))
+
+    def sum_all(self, matrix):
+        """Vrátí součet všech hodnot v matici."""
+        if not matrix:
+            return 0
+        total = 0
+        for row in matrix:
+            for val in row:
+                if val != float('inf'):
+                    total += val
+        return total
+
+    def transpose(self, matrix):
+        """Vrátí transponovanou matici."""
+        if not matrix:
+            return []
+        return [list(row) for row in zip(*matrix)]
+
+    def is_symmetric(self, matrix):
+        """Zkontroluje, zda je matice symetrická."""
+        if not matrix:
+            return True
+        rows = len(matrix)
+        cols = len(matrix[0]) if rows else 0
+        if rows != cols:
+            return False
+        for i in range(rows):
+            for j in range(i+1, cols):
+                if matrix[i][j] != matrix[j][i]:
+                    return False
+        return True
+
+    def trace(self, matrix):
+        """Vrátí stopu matice (součet prvků na hlavní diagonále)."""
+        return self.sum_main_diagonal(matrix)
+
+    def matrix_multiply(self, A, B):
+        """Vynásobí dvě matice A × B."""
+        if not A or not B:
+            return []
+        rows_A = len(A)
+        cols_A = len(A[0]) if rows_A else 0
+        rows_B = len(B)
+        cols_B = len(B[0]) if rows_B else 0
+        
+        if cols_A != rows_B:
+            raise ValueError(f"Matice nelze násobit: {rows_A}×{cols_A} a {rows_B}×{cols_B}")
+        
+        result = [[0] * cols_B for _ in range(rows_A)]
+        for i in range(rows_A):
+            for j in range(cols_B):
+                s = 0
+                for k in range(cols_A):
+                    if A[i][k] != float('inf') and B[k][j] != float('inf'):
+                        s += A[i][k] * B[k][j]
+                result[i][j] = s
+        return result
+
+    def search_in_matrix(self, matrix, nodes, value=None, min_val=None, max_val=None, condition=None):
+        """
+        Vyhledá buňky v matici podle kritérií.
+        
+        Args:
+            matrix: 2D seznam
+            nodes: seznam identifikátorů uzlů
+            value: přesná hodnota k nalezení
+            min_val: minimální hodnota (včetně)
+            max_val: maximální hodnota (včetně)
+            condition: vlastní funkce pro filtrování (lambda val: bool)
+        
+        Returns:
+            list of dict: [{'row': idx, 'col': idx, 'row_node': id, 'col_node': id, 'value': val}, ...]
+        """
+        if not matrix:
+            return []
+        
+        results = []
+        rows = len(matrix)
+        cols = len(matrix[0]) if rows else 0
+        
+        for i in range(rows):
+            for j in range(cols):
+                val = matrix[i][j]
+                
+                # Ignorovat nekonečno pokud není explicitně hledáno
+                if val == float('inf') and value != float('inf'):
+                    continue
+                
+                # Kontrola podmínek
+                match = False
+                if value is not None:
+                    match = (val == value)
+                elif min_val is not None and max_val is not None:
+                    match = (min_val <= val <= max_val)
+                elif min_val is not None:
+                    match = (val >= min_val)
+                elif max_val is not None:
+                    match = (val <= max_val)
+                elif condition is not None:
+                    match = condition(val)
+                else:
+                    match = True  # bez podmínky vrátit vše
+                
+                if match:
+                    results.append({
+                        'row': i,
+                        'col': j,
+                        'row_node': nodes[i] if i < len(nodes) else i,
+                        'col_node': nodes[j] if j < len(nodes) else j,
+                        'value': val
+                    })
+        
+        return results
+
+    def find_max_in_matrix(self, matrix, nodes):
+        """Najde maximální hodnotu (hodnoty) v matici."""
+        if not matrix:
+            return []
+        
+        max_val = float('-inf')
+        for row in matrix:
+            for val in row:
+                if val != float('inf') and val > max_val:
+                    max_val = val
+        
+        if max_val == float('-inf'):
+            return []
+        
+        return self.search_in_matrix(matrix, nodes, value=max_val)
+
+    def find_min_in_matrix(self, matrix, nodes):
+        """Najde minimální hodnotu (hodnoty) v matici."""
+        if not matrix:
+            return []
+        
+        min_val = float('inf')
+        for row in matrix:
+            for val in row:
+                if val != float('inf') and val < min_val:
+                    min_val = val
+        
+        if min_val == float('inf'):
+            return []
+        
+        return self.search_in_matrix(matrix, nodes, value=min_val)
+
+    def find_nonzero_in_matrix(self, matrix, nodes):
+        """Najde všechny nenulové buňky v matici."""
+        return self.search_in_matrix(matrix, nodes, condition=lambda v: v != 0 and v != float('inf'))
+
+    def get_cell_value(self, matrix, nodes, row, col):
+        """
+        Vrátí hodnotu na dané pozici v matici.
+        
+        Args:
+            matrix: 2D seznam
+            nodes: seznam identifikátorů uzlů
+            row: index řádku (může být číslo nebo ID uzlu)
+            col: index sloupce (může být číslo nebo ID uzlu)
+        
+        Returns:
+            dict: {'row': idx, 'col': idx, 'row_node': id, 'col_node': id, 'value': val}
+            nebo None pokud pozice neexistuje
+        """
+        if not matrix:
+            return None
+        
+        # Převést ID uzlu na index pokud je třeba
+        row_idx = row
+        col_idx = col
+        
+        if isinstance(row, str):
+            try:
+                row_idx = nodes.index(row)
+            except (ValueError, AttributeError):
+                return None
+        
+        if isinstance(col, str):
+            try:
+                col_idx = nodes.index(col)
+            except (ValueError, AttributeError):
+                return None
+        
+        # Kontrola rozsahu
+        if row_idx < 0 or row_idx >= len(matrix):
+            return None
+        if col_idx < 0 or col_idx >= len(matrix[0]):
+            return None
+        
+        return {
+            'row': row_idx,
+            'col': col_idx,
+            'row_node': nodes[row_idx] if row_idx < len(nodes) else row_idx,
+            'col_node': nodes[col_idx] if col_idx < len(nodes) else col_idx,
+            'value': matrix[row_idx][col_idx]
+        }
+
+    def interactive_matrix_operations(self, matrix, nodes, matrix_name="matice"):
+        """Interaktivní menu pro práci s maticí."""
+        if not matrix:
+            print("Prázdná matice - žádné operace nejsou k dispozici")
+            return
+
+        while True:
+            print(f"\n{'='*60}")
+            print(f"OPERACE S MATICÍ ({matrix_name})")
+            print("="*60)
+            print("1. Součet řádku")
+            print("2. Součet sloupce")
+            print("3. Součet hlavní diagonály")
+            print("4. Součet vedlejší diagonály")
+            print("5. Celkový součet matice")
+            print("6. Transpozice")
+            print("7. Kontrola symetrie")
+            print("8. Stopa matice (trace)")
+            print("9. Zobrazit matici znovu")
+            print("10. Vyhledat hodnotu")
+            print("11. Vyhledat rozsah hodnot")
+            print("12. Najít maximum")
+            print("13. Najít minimum")
+            print("14. Najít nenulové hodnoty")
+            print("15. Zobrazit hodnotu na pozici [řádek, sloupec]")
+            print("0. Zpět")
+            print("="*60)
+
+            try:
+                choice = input("Vyberte operaci: ").strip()
+                
+                if choice == '0':
+                    break
+                elif choice == '1':
+                    print(f"\nDostupné řádky: 0-{len(matrix)-1}")
+                    for i, node in enumerate(nodes):
+                        print(f"  [{i}] {node}")
+                    row_idx = int(input("Zadejte index řádku: "))
+                    if 0 <= row_idx < len(matrix):
+                        total = self.sum_row(matrix, row_idx)
+                        print(f"Součet řádku {row_idx} ({nodes[row_idx]}): {total}")
+                    else:
+                        print("Neplatný index řádku")
+                
+                elif choice == '2':
+                    cols = len(matrix[0]) if matrix else 0
+                    print(f"\nDostupné sloupce: 0-{cols-1}")
+                    for j in range(cols):
+                        print(f"  [{j}] {nodes[j] if j < len(nodes) else j}")
+                    col_idx = int(input("Zadejte index sloupce: "))
+                    if 0 <= col_idx < cols:
+                        total = self.sum_column(matrix, col_idx)
+                        label = nodes[col_idx] if col_idx < len(nodes) else str(col_idx)
+                        print(f"Součet sloupce {col_idx} ({label}): {total}")
+                    else:
+                        print("Neplatný index sloupce")
+                
+                elif choice == '3':
+                    total = self.sum_main_diagonal(matrix)
+                    print(f"Součet hlavní diagonály: {total}")
+                
+                elif choice == '4':
+                    total = self.sum_anti_diagonal(matrix)
+                    print(f"Součet vedlejší diagonály: {total}")
+                
+                elif choice == '5':
+                    total = self.sum_all(matrix)
+                    print(f"Celkový součet matice: {total}")
+                
+                elif choice == '6':
+                    transposed = self.transpose(matrix)
+                    print("\nTransponovaná matice:")
+                    self._print_matrix(transposed, nodes, col_labels=nodes)
+                
+                elif choice == '7':
+                    is_sym = self.is_symmetric(matrix)
+                    print(f"Matice je symetrická: {'Ano' if is_sym else 'Ne'}")
+                
+                elif choice == '8':
+                    tr = self.trace(matrix)
+                    print(f"Stopa matice (trace): {tr}")
+                
+                elif choice == '9':
+                    print(f"\n{matrix_name.capitalize()}:")
+                    self._print_matrix(matrix, nodes, col_labels=nodes)
+                
+                elif choice == '10':
+                    val_str = input("Zadejte hodnotu k vyhledání: ").strip()
+                    try:
+                        # Zkusit parsovat jako číslo
+                        if val_str.lower() in ['inf', '∞', 'infinity']:
+                            search_val = float('inf')
+                        else:
+                            search_val = float(val_str) if '.' in val_str else int(val_str)
+                        
+                        results = self.search_in_matrix(matrix, nodes, value=search_val)
+                        if results:
+                            print()  # prázdný řádek
+                            for r in results:
+                                print(f"   [{r['row']}, {r['col']}] ({r['row_node']} → {r['col_node']}): {self._format_cell(r['value'])}")
+                            print(f"\n✅ Nalezeno celkem {len(results)} buněk s hodnotou {self._format_cell(search_val)}")
+                        else:
+                            print(f"\n❌ Hodnota {self._format_cell(search_val)} nebyla nalezena")
+                    except ValueError:
+                        print("❌ Neplatná hodnota")
+                
+                elif choice == '11':
+                    try:
+                        min_str = input("Minimální hodnota (Enter pro žádnou): ").strip()
+                        max_str = input("Maximální hodnota (Enter pro žádnou): ").strip()
+                        
+                        min_val = None if not min_str else (float(min_str) if '.' in min_str else int(min_str))
+                        max_val = None if not max_str else (float(max_str) if '.' in max_str else int(max_str))
+                        
+                        results = self.search_in_matrix(matrix, nodes, min_val=min_val, max_val=max_val)
+                        if results:
+                            print()  # prázdný řádek
+                            # Zobrazit max 20 výsledků
+                            for r in results[:20]:
+                                print(f"   [{r['row']}, {r['col']}] ({r['row_node']} → {r['col_node']}): {self._format_cell(r['value'])}")
+                            
+                            range_str = f"{min_val if min_val is not None else '-∞'} až {max_val if max_val is not None else '+∞'}"
+                            if len(results) > 20:
+                                print(f"   ... a dalších {len(results) - 20} buněk")
+                            print(f"\n✅ Nalezeno celkem {len(results)} buněk v rozsahu {range_str}")
+                        else:
+                            print("\n❌ Žádné buňky v daném rozsahu")
+                    except ValueError:
+                        print("❌ Neplatný vstup")
+                
+                elif choice == '12':
+                    results = self.find_max_in_matrix(matrix, nodes)
+                    if results:
+                        max_val = results[0]['value']
+                        print(f"\n✅ Maximální hodnota: {self._format_cell(max_val)}")
+                        for r in results:
+                            print(f"   [{r['row']}, {r['col']}] ({r['row_node']} → {r['col_node']})")
+                        print(f"\nNalezeno na {len(results)} pozicích")
+                    else:
+                        print("\n❌ Matice neobsahuje žádné platné hodnoty")
+                
+                elif choice == '13':
+                    results = self.find_min_in_matrix(matrix, nodes)
+                    if results:
+                        min_val = results[0]['value']
+                        print(f"\n✅ Minimální hodnota: {self._format_cell(min_val)}")
+                        for r in results:
+                            print(f"   [{r['row']}, {r['col']}] ({r['row_node']} → {r['col_node']})")
+                        print(f"\nNalezeno na {len(results)} pozicích")
+                    else:
+                        print("\n❌ Matice neobsahuje žádné platné hodnoty")
+                
+                elif choice == '14':
+                    results = self.find_nonzero_in_matrix(matrix, nodes)
+                    if results:
+                        print()  # prázdný řádek
+                        # Zobrazit max 20 výsledků
+                        for r in results[:20]:
+                            print(f"   [{r['row']}, {r['col']}] ({r['row_node']} → {r['col_node']}): {self._format_cell(r['value'])}")
+                        
+                        if len(results) > 20:
+                            print(f"   ... a dalších {len(results) - 20} buněk")
+                        print(f"\n✅ Nalezeno celkem {len(results)} nenulových buněk")
+                    else:
+                        print("\n❌ Všechny buňky jsou nulové")
+                
+                elif choice == '15':
+                    print("\n💡 Můžete zadat index (0-based) nebo ID uzlu")
+                    print(f"Dostupné uzly: {', '.join(str(n) for n in nodes)}")
+                    row_input = input("Zadejte řádek: ").strip()
+                    col_input = input("Zadejte sloupec: ").strip()
+                    
+                    try:
+                        # Zkusit parsovat jako číslo nebo použít jako ID uzlu
+                        row = int(row_input) if row_input.isdigit() else row_input
+                        col = int(col_input) if col_input.isdigit() else col_input
+                        
+                        result = self.get_cell_value(matrix, nodes, row, col)
+                        if result:
+                            val = result['value']
+                            print(f"\n✅ Pozice [{result['row']}, {result['col']}]")
+                            print(f"   Řádek (od): {result['row_node']}")
+                            print(f"   Sloupec (do): {result['col_node']}")
+                            print(f"   Hodnota: {self._format_cell(val)}")
+                            
+                            # Kontextové informace
+                            if val == 0:
+                                print(f"   ℹ️  Žádná přímá hrana mezi uzly")
+                            elif val == float('inf'):
+                                print(f"   ℹ️  Žádné spojení (nedostupné)")
+                            elif result['row'] == result['col']:
+                                if val > 0:
+                                    print(f"   ℹ️  Smyčka na uzlu {result['row_node']}")
+                                else:
+                                    print(f"   ℹ️  Diagonální prvek (uzel sám se sebou)")
+                            else:
+                                if val > 0:
+                                    print(f"   ℹ️  Existuje {int(val) if isinstance(val, (int, float)) and val == int(val) else val} hrana(n)")
+                        else:
+                            print("❌ Neplatná pozice nebo uzel neexistuje")
+                    except Exception as e:
+                        print(f"❌ Chyba: {e}")
+                
+                else:
+                    print("Neplatná volba")
+                    
+            except ValueError:
+                print("Neplatný vstup")
+            except KeyboardInterrupt:
+                print("\nPřerušeno")
+                break
+            except Exception as e:
+                print(f"Chyba: {e}")

@@ -62,6 +62,7 @@ def create_parser():
     analysis_group.add_argument('--incidence', action='store_true', help='Zobrazí matici incidence (pouze)')
     analysis_group.add_argument('--weight', action='store_true', help='Zobrazí matici vah (pouze)')
     analysis_group.add_argument('--adj-power', type=int, metavar='K', help='Vypočte matici sousednosti na K-tou (A^K)')
+    analysis_group.add_argument('--matrix-ops', action='store_true', help='Interaktivní operace s maticemi (sčítání řádků, sloupců, diagonál, atd.)')
     analysis_group.add_argument('--full', action='store_true', help='Zobrazí kompletní analýzu grafu')
 
     node_group = parser.add_argument_group('Analýzy uzlů')
@@ -90,8 +91,8 @@ def run(argv=None):
     parser = create_parser()
     args = parser.parse_args(argv)
 
-    if not args.quiet:
-        print_custom_header()
+    # if not args.quiet:
+    #     print_custom_header()
 
     graph = commands.load_graph(args.input_file)
 
@@ -99,7 +100,7 @@ def run(argv=None):
         args.properties, args.matrices, args.full,
         args.neighbors, args.degree, args.successors, args.predecessors, args.info,
         args.path, args.all_paths, args.distances, args.diameter, args.radius, args.center,
-        args.adjacency, args.incidence, args.weight, args.adj_power is not None
+        args.adjacency, args.incidence, args.weight, args.adj_power is not None, args.matrix_ops
     ])
 
     if not has_specific_args:
@@ -132,5 +133,5 @@ def run(argv=None):
         commands.analyze_paths(graph, args, args.quiet)
 
     specific_matrix_flags = any([args.adjacency, args.incidence, args.weight, args.adj_power is not None])
-    if args.matrices or args.full or specific_matrix_flags:
+    if args.matrices or args.full or specific_matrix_flags or args.matrix_ops:
         commands.analyze_matrices(graph, args, args.quiet)
