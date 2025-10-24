@@ -164,20 +164,35 @@ class GraphPropertiesAnalyzer:
         if not real_nodes:
             return True
 
-        degrees = []
-        for node_id in real_nodes:
-            if self.graph.is_directed:
+        if self.graph.is_directed:
+            # Pro orientované grafy: k-regulární znamená stejný in-degree a out-degree pro všechny uzly
+            in_degrees = []
+            out_degrees = []
+            for node_id in real_nodes:
                 in_degree = len([e for e in self.graph.rev_adj.get(node_id, []) if e.u.identifier in real_nodes])
                 out_degree = len([e for e in self.graph.adj.get(node_id, []) if e.v.identifier in real_nodes])
-                degrees.append(in_degree + out_degree)
-            else:
+                in_degrees.append(in_degree)
+                out_degrees.append(out_degree)
+            
+            if not in_degrees or not out_degrees:
+                return True
+            
+            # Všechny uzly musí mít stejný vstupní stupeň a stejný výstupní stupeň
+            first_in_degree = in_degrees[0]
+            first_out_degree = out_degrees[0]
+            return (all(d == first_in_degree for d in in_degrees) and 
+                    all(d == first_out_degree for d in out_degrees))
+        else:
+            # Pro neorientované grafy: všechny uzly mají stejný stupeň
+            degrees = []
+            for node_id in real_nodes:
                 degrees.append(len([e for e in self.graph.adj.get(node_id, []) if e.v.identifier in real_nodes]))
 
-        if not degrees:
-            return True
+            if not degrees:
+                return True
 
-        first_degree = degrees[0]
-        return all(d == first_degree for d in degrees)
+            first_degree = degrees[0]
+            return all(d == first_degree for d in degrees)
     
     def is_bipartite_graph(self):
         """Zjistí, zda je graf bipartitní."""
